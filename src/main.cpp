@@ -1,3 +1,4 @@
+#include <EEPROM.h>
 #include <ESP8266WiFi.h>
 
 #define LED_POWER D1
@@ -7,9 +8,6 @@
 #define SWITCH_MENU D6
 #define SWITCH_ENTER D5
 
-WiFiServer server(29111);
-WiFiClient client;
-
 enum mode
 {
   running,
@@ -18,10 +16,16 @@ enum mode
 };
 
 mode currentMode = running;
+
+WiFiServer server(29111);
 bool serverStarted = false;
 
-// Startet die WPS Konfiguration
-bool startWPS()
+WiFiClient client;
+
+char configuration[100] = "";
+int configurationIndex = -1;
+
+bool configureWiFi()
 {
   if (!WiFi.beginWPSConfig())
     return false;
@@ -34,9 +38,32 @@ bool startWPS()
   return true;
 }
 
-// Setup Funktion
+void readConfiguration()
+{
+  for (auto addr = sizeof(configuration); addr-- > 0;)
+    configuration[addr] = EEPROM.read(addr);
+
+  if (configuration[0] == 255)
+    configuration[0] = 0;
+}
+
+void writeConfiguration(const String &config)
+{
+  auto chars = min((uint)(sizeof(configuration) - 1), config.length());
+
+  for (uint i = 0; i < chars; i++)
+    EEPROM.write(i, config[i]);
+
+  EEPROM.write(chars, 0);
+  EEPROM.commit();
+}
+
 void setup()
 {
+  EEPROM.begin(sizeof(configuration));
+
+  readConfiguration();
+
   pinMode(LED_POWER, OUTPUT);
   pinMode(LED_WLAN, OUTPUT);
   pinMode(LED_ACTIVE, OUTPUT);
@@ -105,8 +132,10 @@ void checkEnter()
 
     switch (currentMode)
     {
+    case running:
+      break;
     case wps:
-      if (startWPS())
+      if (configureWiFi())
       {
         currentMode = running;
 
@@ -129,6 +158,12 @@ void checkEnter()
       }
 
       break;
+    case config:
+      writeConfiguration("");
+
+      ESP.restart();
+
+      break;
     }
   }
 }
@@ -149,6 +184,11 @@ void checkWiFi()
 
   server.begin();
   server.setNoDelay(true);
+
+  if (configuration[0])
+    configurationIndex = -1;
+  else
+    configurationIndex = 0;
 }
 
 void checkServer()
@@ -167,13 +207,31 @@ void checkServer()
 
 void checkClient()
 {
+  if (currentMode != running)
+    return;
+
   digitalWrite(LED_ACTIVE, client ? HIGH : LOW);
 
   while (client.available() && Serial.availableForWrite() > 0)
   {
     auto data = client.read();
 
-    Serial.write(data);
+    if (configurationIndex < 0)
+      Serial.write(data);
+    else
+    {
+      configuration[configurationIndex] = data == 13 ? 0 : data;
+
+      if ((uint)configurationIndex < sizeof(configuration) - 1)
+        configurationIndex++;
+
+      if (data == 13)
+      {
+        writeConfiguration(configuration);
+
+        ESP.restart();
+      }
+    }
   }
 }
 
