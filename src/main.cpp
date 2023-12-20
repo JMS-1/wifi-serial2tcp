@@ -1,5 +1,6 @@
 #include <EEPROM.h>
 #include <ESP8266WiFi.h>
+#include <regex.h>
 
 #define LED_POWER D1
 #define LED_WLAN D7
@@ -25,6 +26,18 @@ WiFiClient client;
 char configuration[100] = "";
 int configurationIndex = -1;
 
+char password[100] = "";
+int passwordIndex = -1;
+
+String authorization;
+int baudRate = -1;
+int dataBits = -1;
+int stopBits = -1;
+int parity = -1;
+
+regex_t reg = {0};
+int regErr = regcomp(&reg, "^([^;]+);([1-9][0-9]{0,7});(8);([12]);([01])$", REG_EXTENDED);
+
 bool configureWiFi()
 {
   if (!WiFi.beginWPSConfig())
@@ -45,6 +58,25 @@ void readConfiguration()
 
   if (configuration[0] == 255)
     configuration[0] = 0;
+
+  if (regErr)
+    return;
+
+  String config(configuration);
+
+  regmatch_t regmatch[6] = {0};
+
+  if (regexec(&reg, config.c_str(), sizeof(regmatch) / sizeof(regmatch[0]), regmatch, 0))
+    return;
+
+  authorization = config.substring(regmatch[1].rm_so, regmatch[1].rm_eo);
+
+  baudRate = String(config.substring(regmatch[2].rm_so, regmatch[2].rm_eo)).toInt();
+  dataBits = String(config.substring(regmatch[3].rm_so, regmatch[3].rm_eo)).toInt();
+  stopBits = String(config.substring(regmatch[4].rm_so, regmatch[4].rm_eo)).toInt();
+  parity = String(config.substring(regmatch[5].rm_so, regmatch[5].rm_eo)).toInt();
+
+  passwordIndex = 0;
 }
 
 void writeConfiguration(const String &config)
@@ -73,7 +105,7 @@ void setup()
 
   Serial.begin(115200);
 
-  digitalWrite(LED_POWER, HIGH);
+  digitalWrite(LED_POWER, LOW);
   digitalWrite(LED_WLAN, LOW);
   digitalWrite(LED_ACTIVE, LOW);
 
@@ -98,7 +130,7 @@ void selectMenu()
     case running:
       currentMode = wps;
 
-      digitalWrite(LED_POWER, LOW);
+      digitalWrite(LED_POWER, HIGH);
       digitalWrite(LED_WLAN, HIGH);
 
       break;
@@ -112,7 +144,7 @@ void selectMenu()
       currentMode = running;
 
       digitalWrite(LED_ACTIVE, LOW);
-      digitalWrite(LED_POWER, HIGH);
+      digitalWrite(LED_POWER, LOW);
       break;
     }
   }
@@ -140,9 +172,7 @@ void checkEnter()
         currentMode = running;
 
         digitalWrite(LED_WLAN, LOW);
-        digitalWrite(LED_POWER, HIGH);
-
-        Serial.println("Verbunden via WPS");
+        digitalWrite(LED_POWER, LOW);
       }
       else
       {
@@ -153,8 +183,6 @@ void checkEnter()
           digitalWrite(LED_WLAN, HIGH);
           delay(100);
         }
-
-        Serial.println("Keine Verbindung über WPS herstellbar");
       }
 
       break;
@@ -176,6 +204,7 @@ void checkWiFi()
   auto connected = WiFi.status() == WL_CONNECTED;
 
   digitalWrite(LED_WLAN, connected ? LOW : HIGH);
+  digitalWrite(LED_POWER, connected && !configuration[0] ? HIGH : LOW);
 
   if (!connected || serverStarted)
     return;
@@ -216,9 +245,7 @@ void checkClient()
   {
     auto data = client.read();
 
-    if (configurationIndex < 0)
-      Serial.write(data);
-    else
+    if (configurationIndex >= 0)
     {
       configuration[configurationIndex] = data == 13 ? 0 : data;
 
@@ -232,6 +259,27 @@ void checkClient()
         ESP.restart();
       }
     }
+    else if (passwordIndex >= 0)
+    {
+      password[passwordIndex] = data == 13 ? 0 : data;
+
+      if ((uint)passwordIndex < sizeof(password) - 1)
+        passwordIndex++;
+
+      if (data == 13)
+      {
+        if (authorization == password)
+          passwordIndex = -1;
+        else
+        {
+          passwordIndex = 0;
+
+          client.abort();
+        }
+      }
+    }
+    else
+      Serial.write(data);
   }
 }
 
