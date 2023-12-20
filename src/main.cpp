@@ -7,6 +7,9 @@
 #define SWITCH_MENU D6
 #define SWITCH_ENTER D5
 
+WiFiServer server(29111);
+WiFiClient client;
+
 enum mode
 {
   running,
@@ -14,7 +17,8 @@ enum mode
   config
 };
 
-static mode currentMode = running;
+mode currentMode = running;
+bool serverStarted = false;
 
 // Startet die WPS Konfiguration
 bool startWPS()
@@ -134,7 +138,43 @@ void checkWiFi()
   if (currentMode != running)
     return;
 
-  digitalWrite(LED_WLAN, WiFi.status() == WL_CONNECTED ? LOW : HIGH);
+  auto connected = WiFi.status() == WL_CONNECTED;
+
+  digitalWrite(LED_WLAN, connected ? LOW : HIGH);
+
+  if (!connected || serverStarted)
+    return;
+
+  serverStarted = true;
+
+  server.begin();
+  server.setNoDelay(true);
+}
+
+void checkServer()
+{
+  if (!serverStarted)
+    return;
+
+  if (!server.hasClient())
+    return;
+
+  if (client)
+    server.accept().abort();
+  else
+    client = server.accept();
+}
+
+void checkClient()
+{
+  digitalWrite(LED_ACTIVE, client ? HIGH : LOW);
+
+  while (client.available() && Serial.availableForWrite() > 0)
+  {
+    auto data = client.read();
+
+    Serial.write(data);
+  }
 }
 
 void loop()
@@ -142,4 +182,6 @@ void loop()
   selectMenu();
   checkEnter();
   checkWiFi();
+  checkServer();
+  checkClient();
 }
