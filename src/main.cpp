@@ -172,6 +172,7 @@ void selectMenu()
       // Visualize WPS menu mode.
       currentMode = wps;
 
+      digitalWrite(LED_ACTIVE, LOW);
       digitalWrite(LED_MENU, HIGH);
       digitalWrite(LED_WLAN, HIGH);
 
@@ -260,7 +261,7 @@ void checkWiFi()
   auto connected = WiFi.status() == WL_CONNECTED;
 
   digitalWrite(LED_WLAN, connected ? LOW : HIGH);
-  digitalWrite(LED_MENU, connected && !configuration[0] ? HIGH : LOW);
+  digitalWrite(LED_MENU, connected && authorization.length() < 1 ? HIGH : LOW);
 
   // On first connection just start the TCP server.
   if (!connected || serverStarted)
@@ -271,8 +272,8 @@ void checkWiFi()
   server.begin();
   server.setNoDelay(true);
 
-  // If there is no configuration so far the first TCP client may set one.
-  if (configuration[0])
+  // If there is no valid configuration so far the first TCP client may set one.
+  if (authorization.length() > 0)
     configurationIndex = -1;
   else
     configurationIndex = 0;
@@ -308,10 +309,10 @@ void checkClient()
   if (currentMode != running)
     return;
 
-  // Visualize an active client - or a missing configuration.
-  digitalWrite(LED_ACTIVE, authorization.length() < 1 || client ? HIGH : LOW);
+  // Visualize an active client.
+  digitalWrite(LED_ACTIVE, client ? HIGH : LOW);
 
-  while (client.available() && Serial.availableForWrite() > 0)
+  while (client.available())
   {
     // Retrieve the next byte.
     auto data = client.read();
@@ -325,7 +326,7 @@ void checkClient()
       if ((uint)configurationIndex < sizeof(configuration) - 1)
         configurationIndex++;
 
-      // On end-of-line (indicated be a carriage return) write the configuration to the EEPROM and restart the chip.
+      // On end-of-line (indicated by a carriage return) write the configuration to the EEPROM and restart the chip.
       if (data == 13)
       {
         writeConfiguration(configuration);
