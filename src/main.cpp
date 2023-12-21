@@ -132,8 +132,8 @@ void setup()
   pinMode(LED_ACTIVE, OUTPUT);
 
   // Configure input buttons.
-  pinMode(SWITCH_MENU, INPUT_PULLUP);
-  pinMode(SWITCH_ENTER, INPUT_PULLUP);
+  pinMode(SWITCH_MENU, INPUT);
+  pinMode(SWITCH_ENTER, INPUT);
 
   // Configure the serial connection according to the configuration - currently only the number of stop bits is selectable.
   if (authorization.length() > 0 && dataBits == 8 && parity == 0)
