@@ -15,7 +15,7 @@
 #define SWITCH_MENU D6
 
 // Button to confirm menu entry.
-#define SWITCH_ENTER D5
+#define SWITCH_CONFIRM D5
 
 enum mode
 {
@@ -133,7 +133,7 @@ void setup()
 
   // Configure input buttons.
   pinMode(SWITCH_MENU, INPUT);
-  pinMode(SWITCH_ENTER, INPUT);
+  pinMode(SWITCH_CONFIRM, INPUT);
 
   // Configure the serial connection according to the configuration - currently only the number of stop bits is selectable.
   if (authorization.length() > 0 && dataBits == 8 && parity == 0)
@@ -203,9 +203,9 @@ void checkEnter()
     return;
 
   // Check for a full DOWN/UP of the confirmation button.
-  if (digitalRead(SWITCH_ENTER))
+  if (digitalRead(SWITCH_CONFIRM))
   {
-    while (digitalRead(SWITCH_ENTER))
+    while (digitalRead(SWITCH_CONFIRM))
       ;
 
     // Be aware of duplicate triggers.
