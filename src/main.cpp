@@ -290,7 +290,12 @@ void testPendingClient()
   if (client)
     server.accept().abort();
   else
+  {
     client = server.accept();
+
+    // Must authorize.
+    passwordIndex = 0;
+  }
 }
 
 // See if there is data coming from the client.
@@ -355,6 +360,18 @@ void checkClient()
   }
 }
 
+// See if there is any data from the serial line.
+void checkSerial()
+{
+  // Not in active mode.
+  if (currentMode != running)
+    return;
+
+  // No client or not yet authorized.
+  if (!client || configurationIndex >= 0 || passwordIndex >= 0 || authorization.length() < 1)
+    return;
+}
+
 // Regular operation loop.
 void loop()
 {
@@ -373,5 +390,6 @@ void loop()
   // TCP client data.
   checkClient();
 
-  // Serial data. [TODO]
+  // Serial data.
+  checkSerial();
 }
