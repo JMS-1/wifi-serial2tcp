@@ -73,6 +73,6 @@ In der Implementierung sind noch einige Punkte unvollständig, der geneigte Entw
 - es wird nicht erkannt, wenn die WLAN Verbindung zusammen bricht - was ja durchaus nicht unüblich ist. Weder wird versucht, diese neu erzustellen, noch wird der TCP/IP Server neu gestartet.
 - es gibt keine Zwischenspeicherung von Daten - in keine Richtung. Zu schneller Dateneingang von dem seriellen Anschluss oder der TCP/IP Verbindung kann zu Datenverlust führen. Das zu verifizieren ist aber etwas müßig und nicht erfolgt.
 
-Für alle Fälle auch noch die relative trivial Verschaltung. Neben der Stromversorgung und der seriellen Verbindung benötigt man lediglich 3 LEDs (grün, rot, blau), 2 Tastschalter sowie 5 Widerstände.
+Für alle Fälle auch noch die relative triviale Verschaltung. Neben der Stromversorgung und der seriellen Verbindung benötigt man lediglich 3 LEDs (grün, rot, blau), 2 Tastschalter sowie 5 Widerstände.
 
 ![Verschaltung](wiring.jpg)
