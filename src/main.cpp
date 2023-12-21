@@ -54,7 +54,7 @@ int parity = -1;
 
 // Regular expression detecting valid configurations.
 regex_t reg = {0};
-int regErr = regcomp(&reg, "^([^;]+);([1-9][0-9]{0,7});(8);([12]);([01])$", REG_EXTENDED);
+int regErr = regcomp(&reg, "^([^;]+);([1-9][0-9]{0,7});(8);([12]);(0)$", REG_EXTENDED);
 
 // Try to connect to WLAN through WPS.
 bool configureWiFi()
@@ -135,8 +135,11 @@ void setup()
   pinMode(SWITCH_MENU, INPUT_PULLUP);
   pinMode(SWITCH_ENTER, INPUT_PULLUP);
 
-  // Configure the serial connection according to the configuration. [TODO]
-  Serial.begin(115200);
+  // Configure the serial connection according to the configuration - currently only the number of stop bits is selectable.
+  if (authorization.length() > 0 && dataBits == 8 && parity == 0)
+  {
+    Serial.begin(baudRate, stopBits == 1 ? SerialConfig::SERIAL_8N1 : SerialConfig::SERIAL_8N2);
+  }
 
   // Switch all LED off.
   digitalWrite(LED_MENU, LOW);
@@ -363,6 +366,20 @@ void checkClient()
 // See if there is any data from the serial line.
 void checkSerial()
 {
+  // Get the number of pending characters.
+  auto len = Serial.available();
+
+  if (len < 1)
+    return;
+
+  // Discatd data - even if we can not process it.
+  uint8_t data[len];
+
+  len = Serial.readBytes(data, len);
+
+  if (len < 1)
+    return;
+
   // Not in active mode.
   if (currentMode != running)
     return;
@@ -370,6 +387,9 @@ void checkSerial()
   // No client or not yet authorized.
   if (!client || configurationIndex >= 0 || passwordIndex >= 0 || authorization.length() < 1)
     return;
+
+  // Blind send to client - hopefully fast enough, we do no buffering.
+  client.write(data, len);
 }
 
 // Regular operation loop.
