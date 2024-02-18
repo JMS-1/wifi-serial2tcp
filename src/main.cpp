@@ -140,7 +140,7 @@ void setup()
   auto pass = WiFi.psk();
 
   // Request SSID.
-  if (ssid == "*")
+  if (ssid == "*" || ssid.length() < 1)
   {
     Serial.println("Enter SSID");
 
@@ -154,7 +154,7 @@ void setup()
   }
 
   // Request password.
-  if (pass == "*")
+  if (pass == "*" || pass.length() < 1)
   {
     Serial.println("Enter PASSWORD for " + ssid);
 
