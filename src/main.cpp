@@ -56,17 +56,6 @@ int parity = -1;
 regex_t reg = {0};
 int regErr = regcomp(&reg, "^([^;]+);([1-9][0-9]{0,7});(8);([12]);(0)$", REG_EXTENDED);
 
-// Try to connect to WLAN through WPS.
-bool configureWiFi()
-{
-  // Run the algorithm.
-  if (!WiFi.beginWPSConfig())
-    return false;
-
-  // Validate the SSID to check for a valid connection.
-  return WiFi.SSID().length() > 0;
-}
-
 // Load the configuration from the EEPROM and try to parse it.
 void readConfiguration()
 {
@@ -137,19 +126,48 @@ void setup()
 
   // Configure the serial connection according to the configuration - currently only the number of stop bits is selectable.
   if (authorization.length() > 0 && dataBits == 8 && parity == 0)
-  {
     Serial.begin(baudRate, stopBits == 1 ? SerialConfig::SERIAL_8N1 : SerialConfig::SERIAL_8N2);
-  }
+  else
+    Serial.begin(9600, SerialConfig::SERIAL_8N1);
 
   // Switch all LED off.
   digitalWrite(LED_MENU, LOW);
   digitalWrite(LED_WLAN, LOW);
   digitalWrite(LED_ACTIVE, LOW);
 
-  // Try to connect to the last WLAN discovered during WPS.
+  // Wait for WiFi configuration.
   auto ssid = WiFi.SSID();
   auto pass = WiFi.psk();
 
+  // Request SSID.
+  if (ssid == "*")
+  {
+    Serial.println("Enter SSID");
+
+    do
+    {
+      ssid = Serial.readStringUntil('\r');
+    } while (ssid.length() < 1 || ssid == "\n");
+
+    // Save on connect.
+    WiFi.persistent(true);
+  }
+
+  // Request password.
+  if (pass == "*")
+  {
+    Serial.println("Enter PASSWORD for " + ssid);
+
+    do
+    {
+      pass = Serial.readStringUntil('\r');
+    } while (pass.length() < 1 || pass == "\n");
+
+    // Save on connect.
+    WiFi.persistent(true);
+  }
+
+  // Try to connect to the last WLAN discovered during WPS.
   if (ssid.length() > 0 && pass.length() > 0)
     WiFi.begin(ssid, pass);
 }
@@ -216,26 +234,13 @@ void checkEnter()
     case running:
       break;
     case wps:
-      // Run the WPS algorithm.
-      if (configureWiFi())
-      {
-        // Did work just leave menu mode - WLAN connection may take some time afterwards.
-        currentMode = running;
+      // Reset Wifi confguration.
+      WiFi.persistent(true);
+      WiFi.disconnect(true);
+      WiFi.begin("*", "*");
 
-        digitalWrite(LED_WLAN, LOW);
-        digitalWrite(LED_MENU, LOW);
-      }
-      else
-      {
-        // Visualize failing WPS and stay in WPS menu mode.
-        for (auto i = 10; i-- > 0;)
-        {
-          digitalWrite(LED_WLAN, LOW);
-          delay(100);
-          digitalWrite(LED_WLAN, HIGH);
-          delay(100);
-        }
-      }
+      // Restart the chip.
+      ESP.restart();
 
       break;
     case config:
