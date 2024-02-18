@@ -167,9 +167,8 @@ void setup()
     WiFi.persistent(true);
   }
 
-  // Try to connect to the last WLAN discovered during WPS.
-  if (ssid.length() > 0 && pass.length() > 0)
-    WiFi.begin(ssid, pass);
+  // Try to connect to WLAN.
+  WiFi.begin(ssid, pass);
 }
 
 // Check for operating the menu button.
